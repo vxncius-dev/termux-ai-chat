@@ -5,12 +5,6 @@ Send chat messages directly from your terminal using a simple `chat` command —
 
 ---
 
-## Easy install
-```bash
-curl -s https://raw.githubusercontent.com/vxncius-dev/termux-ai-chat/main/install.sh | bash
-```
----
-
 ## Features
 
 - **Simple syntax:** `chat [options] <message>`  
@@ -28,7 +22,7 @@ curl -s https://raw.githubusercontent.com/vxncius-dev/termux-ai-chat/main/instal
 
 ```bash
 pkg install git curl jq python -y
-git clone https://github.com/<your-username>/termux-ai-chat
+git clone https://github.com/vxncius-dev/termux-ai-chat
 cd termux-ai-chat
 bash install.sh
 ```
