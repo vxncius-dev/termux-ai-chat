@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# termux-ai-chat — Pollinations CLI para Termux
+# Autor: Vxncius-dev
+
+HISTORY_FILE="$HOME/.termux-ai-chat/history.json"
+BASE_URL="https://text.pollinations.ai"
+mkdir -p "$(dirname "$HISTORY_FILE")"
+LANG="pt_br"
+NAME=""
+CONTEXT_ENABLED=false
+CONTEXT_LINES=3
+
+show_help() {
+  cat <<EOF
+termux-ai-chat - Simple Pollinations AI CLI
+
+Usage:
+  chat [options] <mensagem>
+
+Options:
+  --context [N]   Ativa contexto com últimas N mensagens (padrão: 3)
+  --name <nome>   Define nome pessoal para o prompt
+  --lang <lang>   Define idioma (ex: pt_br, en, es)
+  --clear         Limpa histórico salvo
+  --help, -h      Mostra esta ajuda
+
+Autor: Vxncius-dev
+Repositório: https://github.com/seuuser/termux-ai-chat
+EOF
+  exit 0
+}
+
+while [[ "$1" == --* ]]; do
+  case "$1" in
+    --context)
+      CONTEXT_ENABLED=true
+      CONTEXT_LINES="${2:-3}"
+      shift 2
+      ;;
+    --name)
+      NAME="$2"
+      shift 2
+      ;;
+    --lang)
+      LANG="$2"
+      shift 2
+      ;;
+    --clear)
+      rm -f "$HISTORY_FILE"
+      echo "Histórico limpo."
+      exit 0
+      ;;
+    --help|-h)
+      show_help
+      ;;
+    *)
+      echo "Opção desconhecida: $1"
+      echo "Use --help para ver as opções."
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$1" ]; then
+  echo "Uso: chat [opções] <mensagem> (--help para ajuda)"
+  exit 1
+fi
+
+PROMPT="$*"
+if $CONTEXT_ENABLED && [ -f "$HISTORY_FILE" ]; then
+  CONTEXTO=$(jq -r ".[-${CONTEXT_LINES}:] | map(.prompt + ': ' + .response) | join(' | ')" "$HISTORY_FILE")
+else
+  CONTEXTO=""
+fi
+
+PROMPT_FINAL="plaintext_${LANG}_"
+[ -n "$NAME" ] && PROMPT_FINAL+="_meu_nome_e_${NAME}_"
+$CONTEXT_ENABLED && [ -n "$CONTEXTO" ] && PROMPT_FINAL+="_contexto:_${CONTEXTO}_"
+PROMPT_FINAL+="mensagem:_${PROMPT}"
+
+ENCODED=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$PROMPT_FINAL")
+URL="${BASE_URL}/${ENCODED}"
+
+RESPONSE=$(curl -s -w "\n%{http_code}" "$URL")
+HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
+HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+HTTP_BODY=$(echo "$HTTP_BODY" | sed -E 's/```[a-zA-Z]*//g; s/```//g')
+
+LOG_ENTRY=$(jq -n \
+  --arg t "$TIMESTAMP" \
+  --arg prompt "$PROMPT" \
+  --arg resp "$HTTP_BODY" \
+  --arg status "$HTTP_STATUS" \
+  '{timestamp: $t, prompt: $prompt, status: ($status|tonumber), response: $resp}')
+
+[ ! -f "$HISTORY_FILE" ] && echo "[]" > "$HISTORY_FILE"
+jq ". + [ $LOG_ENTRY ]" "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
+
+echo -e "\n$HTTP_BODY"
