@@ -25,7 +25,7 @@ Options:
   --help, -h      Mostra esta ajuda
 
 Autor: Vxncius-dev
-Repositório: https://github.com/seuuser/termux-ai-chat
+Repositório: https://github.com/vxncius-dev/termux-ai-chat
 EOF
   exit 0
 }
